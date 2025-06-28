@@ -1,2 +1,5 @@
 venv
 data/
+.dvc/
+dvc_da
+/data
