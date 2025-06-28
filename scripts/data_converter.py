@@ -79,7 +79,107 @@ class DataConverter:
         except Exception as e:
             print(f"An error occurred while loading the CSV file: {e}")
             return None
+    def clean_data_types(self, df):
+        """
+        Reviews and corrects the data types of columns in the DataFrame.
 
+        Args:
+            df (pd.DataFrame): The input DataFrame to clean.
+
+        Returns:
+            pd.DataFrame: The DataFrame with corrected data types.
+        """
+        if not isinstance(df, pd.DataFrame):
+            print("Error: Input is not a pandas DataFrame.")
+            return df
+
+        print("\n--- Starting Data Type Cleaning ---")
+
+        # --- A. Convert to datetime ---
+        print("Converting date columns...")
+        date_cols = ['TransactionMonth', 'VehicleIntroDate']
+        for col in date_cols:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+                print(f"  - '{col}' converted to datetime.")
+
+        # --- B. Convert to float (numeric) ---
+        print("\nConverting numerical columns from object to float...")
+        # Columns that might have non-numeric characters like 'R' or commas
+        float_cols = ['CapitalOutstanding', 'ExcessSelected']
+        for col in float_cols:
+            if col in df.columns:
+                # Special handling for 'ExcessSelected' to remove 'R'
+                if col == 'ExcessSelected':
+                    df[col] = pd.to_numeric(
+                        df[col].astype(str).str.replace('R', '').str.strip(),
+                        errors='coerce'
+                    )
+                else:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                print(f"  - '{col}' converted to float.")
+
+        # --- C. Convert to Integer or Boolean ---
+        print("\nConverting count/binary columns...")
+
+        # For integer columns (counts, codes, year)
+        int_cols = ['Cylinders', 'NumberOfDoors', 'mmcode', 'RegistrationYear', 'PostalCode'] # PostalCode might be better as object/category for grouping
+        for col in int_cols:
+            if col in df.columns:
+                # Use pandas' nullable integer type (`Int64`)
+                df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
+                print(f"  - '{col}' converted to nullable integer (Int64).")
+
+        # For binary columns ('Yes'/'No' like)
+        binary_cols = ['AlarmImmobiliser', 'TrackingDevice', 'NewVehicle', 'WrittenOff',
+                       'Rebuilt', 'Converted', 'CrossBorder', 'IsVATRegistered'] # Added IsVATRegistered here
+        
+        # More robust mapping dictionary
+        binary_mapping_robust = {
+            'yes': 1, 'Yes': 1, 'Y': 1, 'TRUE': 1, 'True': 1, 1: 1, '1': 1,
+            'no': 0, 'No': 0, 'N': 0, 'FALSE': 0, 'False': 0, 0: 0, '0': 0
+        }
+
+        for col in binary_cols:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.title().map(binary_mapping_robust)
+                df[col] = df[col].astype('Int64', errors='ignore') # Use nullable integer
+                print(f"  - '{col}' converted to binary integer (Int64).")
+                
+        # --- D. Convert to categorical for memory efficiency ---
+        print("\nConverting object columns to category...")
+        # Explicitly define categorical columns to avoid converting IDs or potentially unique strings
+        categorical_cols = [
+            'Citizenship', 'LegalType', 'Title', 'Language', 'Bank', 'AccountType', 'MaritalStatus',
+            'Gender', 'Country', 'Province', 'MainCrestaZone', 'SubCrestaZone',
+            'ItemType', 'VehicleType', 'make', 'Model', 'bodytype', 'CoverCategory',
+            'CoverType', 'CoverGroup', 'Section', 'Product', 'StatutoryClass', 'StatutoryRiskType',
+            'TermFrequency' # TermFrequency is likely categorical
+        ]
+
+        for col in categorical_cols:
+            if col in df.columns and df[col].dtype == 'object': # Only convert if current dtype is object
+                df[col] = df[col].astype('category')
+                print(f"  - '{col}' converted to category.")
+            elif col in df.columns and df[col].dtype != 'category': # If it's already converted to Int64 by mistake
+                # This handles cases where a categorical column might have been picked up as int/float due to mixed types
+                # but should ultimately be categorical
+                if df[col].nunique() < len(df) / 10: # Heuristic: if unique values are less than 10% of total
+                    df[col] = df[col].astype('category')
+                    print(f"  - '{col}' re-converted to category (from non-object).")
+
+
+        # --- E. Drop columns with no data ---
+        print("\nChecking for and dropping columns with all null values...")
+        cols_to_drop = [col for col in df.columns if df[col].isnull().all()]
+        if cols_to_drop:
+            df.drop(columns=cols_to_drop, inplace=True)
+            print(f"  - Dropped columns with all nulls: {cols_to_drop}")
+        else:
+            print("  - No columns with all null values found to drop.")
+
+        print("\n--- Data Type Cleaning Complete ---")
+        return df
 # testing the class independently)
 if __name__ == '__main__':
   
