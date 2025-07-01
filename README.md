@@ -33,6 +33,21 @@
         - `df.duplicated().sum()`
         - `df.describe()`
         - `loss_ratio_by_gender = df.groupby('Gender')[['TotalClaims', 'TotalPremium']].sum()`
-
+- Data Version Control
+    - Install DVC
+        - `pip install dvc`
+    - Initialize DVC: In your project directory, initialize DVC
+        - `dvc init`
+    - Set Up Local Remote Storage
+        - Create a Storage Directory
+            - `mkdir path`
+            - Add the Storage as a DVC Remote
+                - `dvc remote add -d localstorage /path`
+            - Add my Data: 
+                - Place my datasets into my project directory and use DVC to track them
+                    - `dvc add <data.csv>`
+                - Commit Changes to Version Control
+                - Push Data to Local Remote
+                    - `dvc push`
 - Hypothesis testing is the second task
 - Model training and comparison is the last task
